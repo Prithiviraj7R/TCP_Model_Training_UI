@@ -29,8 +29,9 @@ class DataIngestionConfig:
     Y_raw_data_path: str = os.path.join('artifacts','Y_raw_data.csv')
 
 class DataIngestion:
-    def __init__(self):
+    def __init__(self,val_split):
         self.ingestion_config = DataIngestionConfig()
+        self.val_split =val_split
     
     def initiate_data_ingestion(self):
         logging.info("Data Ingestion has started")
@@ -38,8 +39,8 @@ class DataIngestion:
             '''
             Should be later modified to be read from SQL database
             '''
-            X_df = pd.read_excel('notebook\data\CM_X.xlsx',sheet_name=None)
-            Y_df = pd.read_excel('notebook\data\CM_Y.xlsx',sheet_name=None)
+            X_df = pd.read_excel('notebook\data\ACE_X.xlsx',sheet_name=None)
+            Y_df = pd.read_excel('notebook\data\ACE_Y.xlsx',sheet_name=None)
 
             X_df = pd.concat(X_df.values(), ignore_index=True)
             Y_df = pd.concat(Y_df.values(), ignore_index=True)
@@ -53,7 +54,7 @@ class DataIngestion:
 
             logging.info("Train Test split initiated")
 
-            X_train, X_test, Y_train, Y_test = train_test_split(X_df,Y_df,test_size=0.2,random_state=42)
+            X_train, X_test, Y_train, Y_test = train_test_split(X_df,Y_df,test_size=self.val_split,random_state=42)
 
             X_train.to_csv(self.ingestion_config.X_train_data_path, index=False, header=True)
             X_test.to_csv(self.ingestion_config.X_test_data_path, index=False, header=True)
@@ -66,7 +67,9 @@ class DataIngestion:
                 self.ingestion_config.X_train_data_path,
                 self.ingestion_config.Y_train_data_path,
                 self.ingestion_config.X_test_data_path,
-                self.ingestion_config.Y_test_data_path
+                self.ingestion_config.Y_test_data_path,
+                self.ingestion_config.X_raw_data_path,
+                self.ingestion_config.Y_raw_data_path
             )
 
         except Exception as e:
@@ -74,12 +77,15 @@ class DataIngestion:
 
 
 if __name__ == '__main__':
-    obj = DataIngestion()
-    X_train_path,Y_train_path,X_test_path,Y_test_path = obj.initiate_data_ingestion()
+    obj = DataIngestion(0.2)
+    X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
 
     data_transformation = DataTransformation()
     train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
 
+    print(train_arr.shape)
+    print(train_arr[:,:-1].shape)
+
     model_trainer = ModelTrainer()
-    model_name = "Linear Regression"
+    model_name = "Random Forest"
     print(model_trainer.initiate_model_trainer(model_name,train_arr,test_arr))
