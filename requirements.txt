@@ -1,4 +1,9 @@
 numpy
 pandas
 tensorflow
+pickle
+matplotlib
+scikit-learn
+seaborn
+dill
 # -e .
