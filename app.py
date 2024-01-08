@@ -167,7 +167,6 @@ def model_selection_page():
         ax.set_title('Parity Plot - Validation Set')
         st.pyplot(fig)
 
-
 def get_download_link(file_path, text):
     with open(file_path, "rb") as f:
         data = f.read()
@@ -183,10 +182,107 @@ def model_comparison_page():
         "This comparison of performance of different models are then used to choose the "
         "best model for deployment."
     )
-    pass
+    
+    st.subheader('Models Being Trained:')
+
+    models = [
+        "Random Forest",
+        "Decision Tree",
+        "Gradient Boosting",
+        "Linear Regression",
+        "XGBRegressor",
+        "CatBoosting Regressor",
+        "AdaBoost Regressor",
+    ]
+    for model in models:
+        st.write(f"- {model}")
+
+    validation_split = 0.01*int(st.slider("Select Validation Split (%)", 0, 100, 20, step=10))
+
+    with st.spinner(f"Training the model..."):
+        time.sleep(5)  
+
+        obj = DataIngestion(validation_split)
+        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
+
+        data_transformation = DataTransformation()
+        train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
+
+        model_trainer = ModelTrainer()
+        report = model_trainer.initiate_model_comparison(train_arr,test_arr)
+
+        st.success("Model training completed!")
+
+        st.subheader('Results:')
+        st.dataframe(report)
+
+        model_name = report['Test RMSE'].idxmin()
+
+        st.write(f'Based on the comparison of various models mentioned above, {model_name} has been chosen as the best model for deployment. You can download the pickle file of the model from the link provided below.')
+        save_model_path = os.path.join(os.path.join('artifacts','trained_models'),f"{model_name}_model.pkl")
+
+        st.subheader("Download Best Model:")
+        st.markdown(get_download_link(save_model_path, f"{model_name}.pkl"), unsafe_allow_html=True)
+
 
 def deep_learning_page():
     st.title('Deep Learning models')
+
+    deep_learning_models = ["DNN (Deep Neural Networks)"]
+    selected_model = st.selectbox("Select a Model", deep_learning_models)
+    st.write(f"You selected: {selected_model}")
+
+    validation_split = 0.01*int(st.slider("Select Validation Split (%)", 0, 100, 20, step=10))
+
+    with st.spinner(f"Training the model..."):
+        time.sleep(5)  
+
+        obj = DataIngestion(validation_split)
+        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
+
+        data_transformation = DataTransformation()
+        train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
+
+        model_trainer = ModelTrainer()
+        model_name = str(selected_model)
+        report = model_trainer.initiate_dl_training(model_name,train_arr,test_arr)
+
+        st.success("Model training completed!")
+
+        save_model_path = os.path.join(os.path.join('artifacts','trained_models'),f"{model_name}_model.pkl")
+
+        st.subheader("Download Trained Model:")
+        st.markdown(get_download_link(save_model_path, f"{model_name}.pkl"), unsafe_allow_html=True)
+
+        st.subheader(f"{model_name}: Training Results:")
+        st.write(f"Training RMSE: {report[model_name]['train_rmse']:.4f} microns")
+        st.write(f"Training R2: {report[model_name]['train_r2']:.4f}")
+
+        # Parity plot for Training
+        fig, ax = plt.subplots()
+        ax.scatter(report[model_name]['y_train'], report[model_name]['y_train_pred'])
+        ax.plot([min(report[model_name]['y_train']), max(report[model_name]['y_train'])],
+                [min(report[model_name]['y_train']), max(report[model_name]['y_train'])], 'k--', lw=2)
+        ax.set_xlabel('Actual Values')
+        ax.set_ylabel('Predicted Values')
+        ax.set_title('Parity Plot - Training Set')
+        st.pyplot(fig)
+
+        st.subheader(f"{model_name}: Validation Results:")
+        st.write(f"Validation RMSE: {report[model_name]['test_rmse']:.4f} microns")
+        st.write(f"Validation R2: {report[model_name]['test_r2']:.4f}")
+
+        # Parity plot for Validation
+        fig, ax = plt.subplots()
+        ax.scatter(report[model_name]['y_test'], report[model_name]['y_test_pred'])
+        ax.plot([min(report[model_name]['y_test']), max(report[model_name]['y_test'])],
+                [min(report[model_name]['y_test']), max(report[model_name]['y_test'])], 'k--', lw=2)
+        ax.set_xlabel('Actual Values')
+        ax.set_ylabel('Predicted Values')
+        ax.set_title('Parity Plot - Validation Set')
+        st.pyplot(fig)
+
+
 
 def continual_learning_page():
     st.title('Continual Learning models')

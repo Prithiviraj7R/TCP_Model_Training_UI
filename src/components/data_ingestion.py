@@ -39,8 +39,8 @@ class DataIngestion:
             '''
             Should be later modified to be read from SQL database
             '''
-            X_df = pd.read_excel('notebook\data\ACE_X.xlsx',sheet_name=None)
-            Y_df = pd.read_excel('notebook\data\ACE_Y.xlsx',sheet_name=None)
+            X_df = pd.read_excel('notebook\data\CM_X.xlsx',sheet_name=None)
+            Y_df = pd.read_excel('notebook\data\CM_Y.xlsx',sheet_name=None)
 
             X_df = pd.concat(X_df.values(), ignore_index=True)
             Y_df = pd.concat(Y_df.values(), ignore_index=True)
@@ -83,9 +83,5 @@ if __name__ == '__main__':
     data_transformation = DataTransformation()
     train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
 
-    print(train_arr.shape)
-    print(train_arr[:,:-1].shape)
-
     model_trainer = ModelTrainer()
-    model_name = "Random Forest"
-    print(model_trainer.initiate_model_trainer(model_name,train_arr,test_arr))
+    print(model_trainer.initiate_model_comparison(train_arr,test_arr))

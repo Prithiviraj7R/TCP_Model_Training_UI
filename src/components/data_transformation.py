@@ -29,7 +29,6 @@ class DataTransformation:
     def get_data_transformer_object(self):
         try:
             predictor_columns = ['Ambient', 'Ref Temp on Bed', 'Spindle Rear', 'Coolantwall', 'Transfomerbed', 'Spindle Front']
-            target_column = ['Dia Disp']
 
             predictor_pipeline = Pipeline(
                 steps = [
@@ -37,18 +36,11 @@ class DataTransformation:
                 ]
             )
 
-            target_pipeline = Pipeline(
-                steps = [
-                    ("scaler",MinMaxScaler())
-                ]
-            )
-
-            logging.info(f"Min Max Scaling of features: {predictor_columns} and target varaible: {target_column}")
+            logging.info(f"Min Max Scaling of features: {predictor_columns}")
 
             preprocesser = ColumnTransformer(
                 [
-                    ("predictor_pipeline",predictor_pipeline,predictor_columns),
-                    ("target_pipeline",target_pipeline,target_column)
+                    ("predictor_pipeline",predictor_pipeline,predictor_columns)
                 ]
             )
 
@@ -73,8 +65,11 @@ class DataTransformation:
 
             logging.info("Applying preprocessing object on training and testing data.")
 
-            train_arr = preprocessing_object.fit_transform(pd.concat([X_train,Y_train],axis=1))
-            test_arr = preprocessing_object.transform(pd.concat([X_test,Y_test],axis=1))
+            X_train_scaled = preprocessing_object.fit_transform(X_train)
+            X_test_scaled = preprocessing_object.transform(X_test)
+
+            train_arr = np.concatenate((X_train_scaled, Y_train), axis=1)
+            test_arr = np.concatenate((X_test_scaled, Y_test), axis=1)
 
             save_object(
                 file_path = self.data_transformation_config.preprocesser_obj_file_path,
