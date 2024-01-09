@@ -8,8 +8,10 @@ from sklearn.metrics import r2_score,mean_squared_error
 from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
 from keras import layers,models,initializers
+from keras.optimizers import Adam
 
 from src.exception import CustomException
+from src.logger import logging
 
 def save_object(file_path, obj):
     try:
@@ -134,6 +136,80 @@ def evaluate_deep_learning(model_name,X_train,y_train,X_test,y_test):
     except Exception as e:
         raise CustomException(e,sys)
     
+
+def evaluate_online_learning(val_days):
+        
+        try:
+            report = {}
+
+            X_df = pd.read_excel(r'uploaded_data\temperature_data.xlsx',sheet_name=None)
+            Y_df = pd.read_excel(r'uploaded_data\thermal_displacement_data.xlsx',sheet_name=None)
+
+            input_shape = X_df[list(X_df.keys())[0]].shape[1]
+            model = models.Sequential([
+                        layers.Dense(96, input_shape=(input_shape,), activation='tanh', kernel_initializer=initializers.GlorotNormal()),
+                        layers.BatchNormalization(),
+                        layers.Dropout(0.2),
+                        layers.Dense(64, activation='tanh', kernel_initializer=initializers.GlorotNormal()),
+                        layers.BatchNormalization(),
+                        layers.Dropout(0.2),
+                        layers.Dense(32, activation='tanh', kernel_initializer=initializers.GlorotNormal()),
+                        layers.BatchNormalization(),
+                        layers.Dropout(0.2),
+                        layers.Dense(16, activation='tanh', kernel_initializer=initializers.GlorotNormal()),
+                        layers.BatchNormalization(),
+                        layers.Dropout(0.2),
+                        layers.Dense(8, activation='tanh', kernel_initializer=initializers.GlorotNormal()),
+                        layers.BatchNormalization(),
+                        layers.Dropout(0.2),
+                        layers.Dense(1, kernel_initializer=initializers.GlorotNormal())
+                    ])
+                        
+            preprocesser = load_object(file_path=os.path.join('artifacts','preprocesser.pkl'))
+
+            if len(X_df.keys()) == len(Y_df.keys()):
+                
+                sheets_X = list(X_df.keys())
+                sheets_Y = list(Y_df.keys())
+                tot_days = len(X_df.keys())
+                train_days = tot_days - val_days
+
+                for day in range(train_days):
+                    X_train_data = X_df[sheets_X[day]]
+                    Y_train_data = Y_df[sheets_Y[day]]
+
+                    X_train_data = preprocesser.transform(X_train_data)
+                    
+                    model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error', metrics=['mean_squared_error'])
+                    model.fit(X_train_data,np.array(Y_train_data),epochs=500,batch_size=32,verbose=0)
+
+                for day in range(train_days,tot_days):
+                    X_test_data = X_df[sheets_X[day]]
+                    Y_test_data = Y_df[sheets_Y[day]]
+
+                    X_test_data = preprocesser.transform(X_test_data)
+
+                    Y_pred = model.predict(X_test_data,verbose=0)
+                    rmse = mean_squared_error(Y_test_data,Y_pred,squared=False)
+                    r2 = r2_score(Y_test_data,Y_pred)
+
+                    report['Day '+str(day+1)] = {
+                        'Test rmse': rmse,
+                        'Test R2': r2,
+                        'y_test': Y_test_data,
+                        'y_pred': Y_pred
+                    }
+                
+            model_name = "Online_DNN"
+            save_object(
+            file_path = os.path.join(os.path.join('artifacts','trained_models'),f"{model_name}_model.pkl"),
+            obj=model
+            )
+
+            return report
+
+        except Exception as e:
+            raise CustomException(e,sys)
 
 
 

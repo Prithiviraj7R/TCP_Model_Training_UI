@@ -263,6 +263,24 @@ def continual_learning_page():
 
     st.write(f"{num_days-validation_split} days of data will be used for training the model and {validation_split} days of data will be used for validation.")
 
+    with st.spinner(f"Training the model..."):
+        time.sleep(5)  
+        
+        train_pipeline = TrainPipeline()
+        report = train_pipeline.train_online_model(validation_split)
+
+        st.success("Model training completed!")
+        st.subheader('Results:')
+
+        model_name = "Online_DNN"
+        save_model_path = os.path.join(os.path.join('artifacts','trained_models'),f"{model_name}_model.pkl")
+
+        st.subheader("Download Trained Model:")
+        st.markdown(get_download_link(save_model_path, f"{model_name}.pkl"), unsafe_allow_html=True)
+
+        results_df = pd.DataFrame([(key, value['Test rmse'], value['Test R2']) for key, value in report.items()], columns=['Day', 'Test RMSE (in microns)','Test R2'])
+        st.write(results_df)
+
 
 def make_predictions_page():
     st.title("Get Predictions")

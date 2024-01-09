@@ -53,3 +53,13 @@ class TrainPipeline:
             pass
         except Exception as e:
             raise CustomException(e,sys)
+        
+    def train_online_model(self,val_split):
+        logging.info("Training Online Learning model")
+        try:
+            model_trainer = ModelTrainer()
+            report = model_trainer.initiate_online_learning(val_split)
+            return report
+        
+        except Exception as e:
+            CustomException(e,sys)

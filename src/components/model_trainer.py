@@ -18,7 +18,8 @@ from xgboost import XGBRegressor
 
 from src.exception import CustomException
 from src.logger import logging
-from src.utils import save_object,evaluate_models,evaluate_deep_learning
+from src.utils import save_object,evaluate_models,evaluate_deep_learning,load_object
+from src.utils import evaluate_online_learning
 
 @dataclass
 class ModelTrainerConfig:
@@ -209,6 +210,21 @@ class ModelTrainer:
 
             return model_report
 
-            pass
         except Exception as e:
             raise CustomException(e,sys)
+        
+    def initiate_online_learning(self,val_days):
+        try:
+            logging.info("Online Learning Training has started")
+
+            model_report = evaluate_online_learning(val_days)
+
+            return model_report
+            
+        except Exception as e:
+            raise CustomException(e,sys)
+        
+if __name__ == '__main__':
+    model_trainer = ModelTrainer()
+    report = model_trainer.initiate_online_learning(2)
+    print(report)

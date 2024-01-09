@@ -27,8 +27,6 @@ class DataIngestionConfig:
     Y_test_data_path: str = os.path.join('artifacts','Y_test.csv')
     X_raw_data_path: str = os.path.join('artifacts','X_raw_data.csv')
     Y_raw_data_path: str = os.path.join('artifacts','Y_raw_data.csv')
-    X_data_path: str = os.path.join('artifacts','X_data.xlsx')
-    Y_data_path:str = os.path.join('artifacts','Y_data.xlsx')
 
 class DataIngestion:
     def __init__(self):
