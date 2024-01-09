@@ -27,20 +27,24 @@ class DataIngestionConfig:
     Y_test_data_path: str = os.path.join('artifacts','Y_test.csv')
     X_raw_data_path: str = os.path.join('artifacts','X_raw_data.csv')
     Y_raw_data_path: str = os.path.join('artifacts','Y_raw_data.csv')
+    X_data_path: str = os.path.join('artifacts','X_data.xlsx')
+    Y_data_path:str = os.path.join('artifacts','Y_data.xlsx')
 
 class DataIngestion:
-    def __init__(self,val_split):
+    def __init__(self):
         self.ingestion_config = DataIngestionConfig()
-        self.val_split =val_split
     
-    def initiate_data_ingestion(self):
+    def initiate_data_ingestion(self,val_split):
         logging.info("Data Ingestion has started")
         try:
             '''
             Should be later modified to be read from SQL database
             '''
-            X_df = pd.read_excel('notebook\data\CM_X.xlsx',sheet_name=None)
-            Y_df = pd.read_excel('notebook\data\CM_Y.xlsx',sheet_name=None)
+            # X_df = pd.read_excel('notebook\data\CM_X.xlsx',sheet_name=None)
+            # Y_df = pd.read_excel('notebook\data\CM_Y.xlsx',sheet_name=None)
+
+            X_df = pd.read_excel(r'uploaded_data\temperature_data.xlsx',sheet_name=None)
+            Y_df = pd.read_excel(r'uploaded_data\thermal_displacement_data.xlsx',sheet_name=None)
 
             X_df = pd.concat(X_df.values(), ignore_index=True)
             Y_df = pd.concat(Y_df.values(), ignore_index=True)
@@ -54,7 +58,7 @@ class DataIngestion:
 
             logging.info("Train Test split initiated")
 
-            X_train, X_test, Y_train, Y_test = train_test_split(X_df,Y_df,test_size=self.val_split,random_state=42)
+            X_train, X_test, Y_train, Y_test = train_test_split(X_df,Y_df,test_size=val_split,random_state=42)
 
             X_train.to_csv(self.ingestion_config.X_train_data_path, index=False, header=True)
             X_test.to_csv(self.ingestion_config.X_test_data_path, index=False, header=True)
@@ -74,11 +78,24 @@ class DataIngestion:
 
         except Exception as e:
             raise CustomException(e,sys)
+        
 
+    def initiate_day_wise_data_ingestion(self):
+        logging.info("Data Ingestion for continual learning has started")
+        try:
+            X_df = pd.read_excel(r'uploaded_data\temperature_data.xlsx',sheet_name=None)
+            Y_df = pd.read_excel(r'uploaded_data\thermal_displacement_data.xlsx',sheet_name=None)
+
+            num_days = len(X_df.keys())
+            return num_days
+
+        except Exception as e:
+            raise CustomException(e,sys)
+        
 
 if __name__ == '__main__':
-    obj = DataIngestion(0.2)
-    X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
+    obj = DataIngestion()
+    X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion(0.2)
 
     data_transformation = DataTransformation()
     train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)

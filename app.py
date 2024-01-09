@@ -2,14 +2,19 @@
 
 import streamlit as st
 import os
+import sys
 import base64
 import time
+import dill
 import pandas as pd
 import matplotlib.pyplot as plt
 
 from src.components.data_ingestion import DataIngestionConfig,DataIngestion
 from src.components.data_transformation import DataTransformation, DataTransformationConfig
 from src.components.model_trainer import ModelTrainerConfig,ModelTrainer
+from src.pipeline.train_pipeline import TrainPipeline
+from src.exception import CustomException
+from src.utils import load_object
 
 
 def home_page():
@@ -71,7 +76,7 @@ def handle_uploaded_file(uploaded_file, file_type):
         save_directory = "uploaded_data"
         os.makedirs(save_directory, exist_ok=True)
 
-        file_path = os.path.join(save_directory, f"uploaded_{file_type}_data.{uploaded_file.name.split('.')[-1]}")
+        file_path = os.path.join(save_directory, f"{file_type}_data.{uploaded_file.name.split('.')[-1]}")
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getvalue())
 
@@ -122,15 +127,10 @@ def model_selection_page():
     with st.spinner(f"Training the model..."):
         time.sleep(5)  
 
-        obj = DataIngestion(validation_split)
-        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
-
-        data_transformation = DataTransformation()
-        train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
-
-        model_trainer = ModelTrainer()
         model_name = str(selected_model)
-        report = model_trainer.initiate_model_trainer(model_name,train_arr,test_arr)
+
+        train_pipeline = TrainPipeline()
+        report = train_pipeline.train_selected_model(model_name,validation_split)
 
         st.success("Model training completed!")
 
@@ -143,36 +143,9 @@ def model_selection_page():
         st.write(f"Training RMSE: {report[model_name]['train_rmse']:.4f} microns")
         st.write(f"Training R2: {report[model_name]['train_r2']:.4f}")
 
-        # Parity plot for Training
-        fig, ax = plt.subplots()
-        ax.scatter(report[model_name]['y_train'], report[model_name]['y_train_pred'])
-        ax.plot([min(report[model_name]['y_train']), max(report[model_name]['y_train'])],
-                [min(report[model_name]['y_train']), max(report[model_name]['y_train'])], 'k--', lw=2)
-        ax.set_xlabel('Actual Values')
-        ax.set_ylabel('Predicted Values')
-        ax.set_title('Parity Plot - Training Set')
-        st.pyplot(fig)
+        model_training_results(selected_model, report)
+        model_validation_results(selected_model, report)
 
-        st.subheader(f"{model_name}: Validation Results:")
-        st.write(f"Validation RMSE: {report[model_name]['test_rmse']:.4f} microns")
-        st.write(f"Validation R2: {report[model_name]['test_r2']:.4f}")
-
-        # Parity plot for Validation
-        fig, ax = plt.subplots()
-        ax.scatter(report[model_name]['y_test'], report[model_name]['y_test_pred'])
-        ax.plot([min(report[model_name]['y_test']), max(report[model_name]['y_test'])],
-                [min(report[model_name]['y_test']), max(report[model_name]['y_test'])], 'k--', lw=2)
-        ax.set_xlabel('Actual Values')
-        ax.set_ylabel('Predicted Values')
-        ax.set_title('Parity Plot - Validation Set')
-        st.pyplot(fig)
-
-def get_download_link(file_path, text):
-    with open(file_path, "rb") as f:
-        data = f.read()
-    b64 = base64.b64encode(data).decode()
-    href = f"<a href='data:application/octet-stream;base64,{b64}' download='{os.path.basename(file_path)}'>{text}</a>"
-    return href
 
 def model_comparison_page():
     st.title('Model Comparison')
@@ -201,15 +174,9 @@ def model_comparison_page():
 
     with st.spinner(f"Training the model..."):
         time.sleep(5)  
-
-        obj = DataIngestion(validation_split)
-        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
-
-        data_transformation = DataTransformation()
-        train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
-
-        model_trainer = ModelTrainer()
-        report = model_trainer.initiate_model_comparison(train_arr,test_arr)
+        
+        train_pipeline = TrainPipeline()
+        report = train_pipeline.train_all_models(validation_split)
 
         st.success("Model training completed!")
 
@@ -237,8 +204,8 @@ def deep_learning_page():
     with st.spinner(f"Training the model..."):
         time.sleep(5)  
 
-        obj = DataIngestion(validation_split)
-        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion()
+        obj = DataIngestion()
+        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion(validation_split)
 
         data_transformation = DataTransformation()
         train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
@@ -283,9 +250,89 @@ def deep_learning_page():
         st.pyplot(fig)
 
 
-
 def continual_learning_page():
     st.title('Continual Learning models')
+
+    continual_learning_models = ["DNN (Deep Neural Networks) - Daywise Training"]
+    selected_model = st.selectbox("Select a Model", continual_learning_models)
+    st.write(f"You selected: {selected_model}")
+
+    data_ingestion = DataIngestion()
+    num_days = data_ingestion.initiate_day_wise_data_ingestion()
+    validation_split = int(st.slider("Select Days for validation", 0, num_days, int(0.2*num_days), step=1))
+
+    st.write(f"{num_days-validation_split} days of data will be used for training the model and {validation_split} days of data will be used for validation.")
+
+
+def make_predictions_page():
+    st.title("Get Predictions")
+
+    uploaded_model = st.file_uploader("Upload Trained Model (.pkl)", type=["pkl"])
+    input_file = st.file_uploader("Upload temperature data for prediction",type=['csv'])
+
+    if uploaded_model is not None and input_file is not None:
+        try:
+            model = dill.load(uploaded_model)
+            st.success("Model loaded successfully!")
+
+        except Exception as e:
+            st.error("Error loading the model!")
+            raise CustomException(e,sys)
+        
+        try:
+            input_data = pd.read_csv(input_file)
+            st.success("Data loaded successfully!")
+
+        except Exception as e:
+            st.error("Error loading the data!")
+            raise CustomException(e,sys)
+        
+        preprocessor_path = os.path.join('artifacts','preprocesser.pkl')
+        preproceesor = load_object(file_path = preprocessor_path) 
+        scaled_input = preproceesor.transform(input_data)
+
+        predictions = pd.DataFrame(model.predict(scaled_input),columns=['Error (in microns)'])
+
+        st.subheader('Your Input data:')
+        st.write(input_data)
+
+        st.subheader('Predictions:')
+        st.write(predictions)
+
+
+
+def plot_parity(ax, actual, predicted, title):
+    ax.scatter(actual, predicted)
+    ax.plot([min(actual), max(actual)], [min(actual), max(actual)], 'k--', lw=2)
+    ax.set_xlabel('Actual Values')
+    ax.set_ylabel('Predicted Values')
+    ax.set_title(f'Parity Plot - {title} Set')
+
+def model_training_results(selected_model, report):
+    st.subheader(f"{selected_model}: Training Results:")
+    st.write(f"Training RMSE: {report[selected_model]['train_rmse']:.4f} microns")
+    st.write(f"Training R2: {report[selected_model]['train_r2']:.4f}")
+
+    fig, ax = plt.subplots()
+    plot_parity(ax, report[selected_model]['y_train'], report[selected_model]['y_train_pred'], 'Training')
+    st.pyplot(fig)
+
+def model_validation_results(selected_model, report):
+    st.subheader(f"{selected_model}: Validation Results:")
+    st.write(f"Validation RMSE: {report[selected_model]['test_rmse']:.4f} microns")
+    st.write(f"Validation R2: {report[selected_model]['test_r2']:.4f}")
+
+    fig, ax = plt.subplots()
+    plot_parity(ax, report[selected_model]['y_test'], report[selected_model]['y_test_pred'], 'Validation')
+    st.pyplot(fig)
+
+def get_download_link(file_path, text):
+    with open(file_path, "rb") as f:
+        data = f.read()
+    b64 = base64.b64encode(data).decode()
+    href = f"<a href='data:application/octet-stream;base64,{b64}' download='{os.path.basename(file_path)}'>{text}</a>"
+    return href
+
 
 def main():
     st.sidebar.title("Navigation")
@@ -294,6 +341,7 @@ def main():
         "Data Upload": data_upload_page,
         "ML Model Training": model_selection_page,
         "ML Model Comparison": model_comparison_page,
+        "Get Predictions": make_predictions_page,
         "Deep Learning models": deep_learning_page,
         "Continual Learning models": continual_learning_page,
     }
