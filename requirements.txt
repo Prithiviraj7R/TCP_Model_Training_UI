@@ -9,4 +9,5 @@ dataclasses
 catboost
 xgboost
 base64
+streamlit
 -e .
