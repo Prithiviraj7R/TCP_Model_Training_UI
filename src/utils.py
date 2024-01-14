@@ -7,7 +7,7 @@ import dill
 from sklearn.metrics import r2_score,mean_squared_error
 from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
-from keras import layers,models,initializers
+from keras import layers,models,initializers,regularizers
 from keras.optimizers import Adam
 
 from src.exception import CustomException
@@ -211,5 +211,102 @@ def evaluate_online_learning(val_days):
         except Exception as e:
             raise CustomException(e,sys)
 
+def createXY(dataset,n_past):
+    try:
+        dataX = []
+        dataY = []  
 
+        for i in range(n_past,len(dataset)):
+            dataX.append(dataset[i-n_past:i,:-1])
+            dataY.append(dataset[i,-1])
 
+        return np.array(dataX),np.array(dataY)
+
+    except Exception as e:
+        raise CustomException(e,sys)
+    
+
+def train_LSTM(X_train,y_train,X_test,y_test):
+    try:
+        model = models.Sequential([
+                    layers.LSTM(
+                        units=64, return_sequences=True,
+                        input_shape=(X_train.shape[1], X_train.shape[2]),
+                        kernel_initializer=initializers.GlorotNormal(),
+                        kernel_regularizer=regularizers.l2(0.001)
+                    ),
+                    layers.BatchNormalization(),
+                    layers.Dropout(0.2),
+
+                    layers.LSTM(
+                        units=64, return_sequences=True,
+                        kernel_initializer=initializers.GlorotNormal(),
+                        kernel_regularizer=regularizers.l2(0.001)
+                    ),
+                    layers.BatchNormalization(),
+                    layers.Dropout(0.2),
+
+                    layers.LSTM(
+                        units=32, return_sequences=True,
+                        kernel_initializer=initializers.GlorotNormal(),
+                        kernel_regularizer=regularizers.l2(0.001)
+                    ),
+                    layers.BatchNormalization(),
+                    layers.Dropout(0.2),
+
+                    layers.LSTM(
+                        units=16, return_sequences=True,
+                        kernel_initializer=initializers.GlorotNormal(),
+                        kernel_regularizer=regularizers.l2(0.001)
+                    ),
+                    layers.BatchNormalization(),
+                    layers.Dropout(0.2),
+
+                    layers.LSTM(
+                        units=8, 
+                        kernel_initializer=initializers.GlorotNormal(),
+                        kernel_regularizer=regularizers.l2(0.001)
+                    ),
+                    layers.BatchNormalization(),
+                    layers.Dropout(0.2),
+
+                    layers.Dense(1)
+                ])
+        
+        model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error', metrics=['mean_squared_error'])
+
+        model.fit(X_train, y_train, epochs=200, validation_split=0.2,verbose=0)
+
+        y_train_pred = model.predict(X_train,verbose=0)
+        y_test_pred = model.predict(X_test,verbose=0)
+
+        train_rmse = mean_squared_error(y_train, y_train_pred, squared=False)
+        test_rmse = mean_squared_error(y_test, y_test_pred, squared=False)
+
+        train_r2 = r2_score(y_train, y_train_pred)
+        test_r2 = r2_score(y_test, y_test_pred)
+
+        report = {}
+        model_name = "LSTM (Long Short-Term Memory)"
+
+        report[model_name] = {
+            "train_rmse": train_rmse,
+            "test_rmse": test_rmse,
+            "train_r2": train_r2,
+            "test_r2": test_r2,
+            "y_train": y_train,
+            "y_test": y_test,
+            "y_train_pred": y_train_pred,
+            "y_test_pred": y_test_pred
+        }
+
+        save_object(
+            file_path = os.path.join(os.path.join('artifacts','trained_models'),f"{model_name}_model.pkl"),
+            obj=model
+        )
+
+        return report
+
+    except Exception as e:
+        raise CustomException(e,sys)
+    

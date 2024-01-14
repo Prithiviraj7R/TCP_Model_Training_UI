@@ -195,7 +195,7 @@ def model_comparison_page():
 def deep_learning_page():
     st.title('Deep Learning models')
 
-    deep_learning_models = ["DNN (Deep Neural Networks)"]
+    deep_learning_models = ["DNN (Deep Neural Networks)","LSTM (Long Short-Term Memory)"]
     selected_model = st.selectbox("Select a Model", deep_learning_models)
     st.write(f"You selected: {selected_model}")
 
@@ -204,15 +204,24 @@ def deep_learning_page():
     with st.spinner(f"Training the model..."):
         time.sleep(5)  
 
-        obj = DataIngestion()
-        X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion(validation_split)
+        if selected_model == "DNN (Deep Neural Networks)":
 
-        data_transformation = DataTransformation()
-        train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
+            obj = DataIngestion()
+            X_train_path,Y_train_path,X_test_path,Y_test_path,_,_ = obj.initiate_data_ingestion(validation_split)
 
-        model_trainer = ModelTrainer()
-        model_name = str(selected_model)
-        report = model_trainer.initiate_dl_training(model_name,train_arr,test_arr)
+            data_transformation = DataTransformation()
+            train_arr,test_arr,_ = data_transformation.initiate_data_transformation(X_train_path,Y_train_path,X_test_path,Y_test_path)
+
+            model_trainer = ModelTrainer()
+            model_name = str(selected_model)
+            report = model_trainer.initiate_dl_training(model_name,train_arr,test_arr)
+
+        elif selected_model == "LSTM (Long Short-Term Memory)":
+            
+            train_pipeline = TrainPipeline()
+            report = train_pipeline.train_LSTM_model(validation_split)
+
+            model_name = str(selected_model)
 
         st.success("Model training completed!")
 
@@ -248,6 +257,7 @@ def deep_learning_page():
         ax.set_ylabel('Predicted Values')
         ax.set_title('Parity Plot - Validation Set')
         st.pyplot(fig)
+
 
 
 def continual_learning_page():

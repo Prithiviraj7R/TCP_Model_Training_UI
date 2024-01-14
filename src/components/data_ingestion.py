@@ -2,6 +2,7 @@
 
 import os
 import sys
+
 from src.exception import CustomException
 from src.logger import logging
 from src.components.data_transformation import DataTransformation, DataTransformationConfig
@@ -27,6 +28,11 @@ class DataIngestionConfig:
     Y_test_data_path: str = os.path.join('artifacts','Y_test.csv')
     X_raw_data_path: str = os.path.join('artifacts','X_raw_data.csv')
     Y_raw_data_path: str = os.path.join('artifacts','Y_raw_data.csv')
+
+    X_train_seq_path: str = os.path.join('artifacts','X_train_seq.csv')
+    Y_train_seq_path: str = os.path.join('artifacts','Y_train_seq.csv')
+    X_test_seq_path: str = os.path.join('artifacts','X_test_seq.csv')
+    Y_test_seq_path: str = os.path.join('artifacts','Y_test_seq.csv')
 
 class DataIngestion:
     def __init__(self):
@@ -87,6 +93,55 @@ class DataIngestion:
             num_days = len(X_df.keys())
             return num_days
 
+        except Exception as e:
+            raise CustomException(e,sys)
+        
+    def initiate_sequence_ingestion(self,val_split):
+        logging.info("Data Ingestion for sequential data has started")
+        try:
+            X_df = pd.read_excel(r'uploaded_data\temperature_data.xlsx',sheet_name=None)
+            Y_df = pd.read_excel(r'uploaded_data\thermal_displacement_data.xlsx',sheet_name=None)
+
+            num_days = len(X_df.keys())
+            val_days = int(val_split*num_days)
+            train_days = num_days - val_days
+
+            sheets_X = list(X_df.keys())
+            sheets_Y = list(Y_df.keys())
+
+            X_train_df = pd.DataFrame()
+            Y_train_df = pd.DataFrame()
+            X_test_df = pd.DataFrame()
+            Y_test_df = pd.DataFrame()
+
+            for day in range(train_days):
+                X_data = X_df[sheets_X[day]]
+                Y_data = Y_df[sheets_Y[day]]
+
+                X_train_df = pd.concat([X_train_df,X_data], ignore_index=True)
+                Y_train_df = pd.concat([Y_train_df,Y_data], ignore_index=True)
+
+            for day in range(train_days,num_days):
+                X_data = X_df[sheets_X[day]]
+                Y_data = Y_df[sheets_Y[day]]
+
+                X_test_df = pd.concat([X_test_df,X_data], ignore_index=True)
+                Y_test_df = pd.concat([Y_test_df,Y_data], ignore_index=True)
+
+            X_train_df.to_csv(self.ingestion_config.X_train_seq_path, index=False, header=True)
+            X_test_df.to_csv(self.ingestion_config.X_test_seq_path, index=False, header=True)
+            Y_train_df.to_csv(self.ingestion_config.Y_train_seq_path, index=False, header=True)
+            Y_test_df.to_csv(self.ingestion_config.Y_test_seq_path, index=False, header=True)
+            
+            logging.info("Data Sequence generated!")
+
+            return (
+                self.ingestion_config.X_train_seq_path,
+                self.ingestion_config.Y_train_seq_path,
+                self.ingestion_config.X_test_seq_path,
+                self.ingestion_config.Y_test_seq_path
+            )
+        
         except Exception as e:
             raise CustomException(e,sys)
         

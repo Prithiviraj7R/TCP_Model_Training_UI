@@ -19,7 +19,7 @@ from xgboost import XGBRegressor
 from src.exception import CustomException
 from src.logger import logging
 from src.utils import save_object,evaluate_models,evaluate_deep_learning,load_object
-from src.utils import evaluate_online_learning
+from src.utils import evaluate_online_learning,createXY,train_LSTM
 
 @dataclass
 class ModelTrainerConfig:
@@ -224,6 +224,17 @@ class ModelTrainer:
         except Exception as e:
             raise CustomException(e,sys)
         
+    def initiate_LSTM_training(self,X_train,y_train,X_test,y_test):
+        try:
+            logging.info("LSTM Training has started")
+
+            model_report = train_LSTM(X_train,y_train,X_test,y_test)
+
+            return model_report
+            
+        except Exception as e:
+            raise CustomException(e,sys)
+
 if __name__ == '__main__':
     model_trainer = ModelTrainer()
     report = model_trainer.initiate_online_learning(2)
